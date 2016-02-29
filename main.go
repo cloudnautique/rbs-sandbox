@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/BurntSushi/toml"
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/go-rancher/client"
@@ -30,15 +28,17 @@ func newRancherServer() *rancherServer {
 	config := &tomlConfig{}
 
 	opts := &client.ClientOpts{
-		Url: rancherURL,
+		Url:       rancherURL,
+		AccessKey: "admin",
+		SecretKey: "admin",
 	}
 
 	rClient, _ := getRancherClient(opts)
-	adminKeys, _ := generateAdminApiKeys(rClient)
-	rClient.Opts.AccessKey = adminKeys.PublicValue
-	rClient.Opts.SecretKey = adminKeys.SecretValue
+	//adminKeys, _ := generateAdminApiKeys(rClient)
+	//rClient.Opts.AccessKey = adminKeys.PublicValue
+	//rClient.Opts.SecretKey = adminKeys.SecretValue
 
-	logrus.Infof("Using Access Key: %s", adminKeys.PublicValue)
+	logrus.Infof("Using Access Key: %s", rClient.Opts.AccessKey)
 
 	if _, err := toml.DecodeFile(configFile, &config); err != nil {
 		logrus.Fatalf("Could not parse config: %s", err)
@@ -52,10 +52,10 @@ func newRancherServer() *rancherServer {
 
 func main() {
 	rancherServer := newRancherServer()
-	rancherServer.enableAdAuth()
-	rancherServer.setupAccounts()
-	rancherServer.removeDefaultProject()
-	rancherServer.addProjects()
+	//rancherServer.enableAdAuth()
+	//rancherServer.setupAccounts()
+	//rancherServer.removeDefaultProject()
+	//rancherServer.addProjects()
 	rancherServer.addMembers()
 }
 
@@ -116,8 +116,71 @@ func (r *rancherServer) addProjects() {
 }
 
 func (r *rancherServer) addMembers() {
-	for projectName, projectMemberName := range r.config.Memberships {
-		fmt.Printf("Project Name: %s\n", projectName)
-		fmt.Printf("Project membership: %#v\n", projectMemberName)
+	for projectName, projectMembers := range r.config.Memberships {
+		project, err := r.findExistingProject(projectName)
+		if err != nil {
+			logrus.Fatalf("Could not find project %s", projectName)
+		}
+
+		setProjectMembersInput, _ := r.client.SetProjectMembersInput.List(&client.ListOpts{
+			Filters: map[string]interface{}{}
+		})
+		members, err := r.getProjectMembers(project)
+		if err != nil {
+			logrus.Fatalf("Error: %s", err)
+		}
+
+		for _, member := range projectMembers {
+			members = append(members, *member)
+		}
+
+		logrus.Infof("members %s", members)
 	}
+}
+
+func (r *rancherServer) getProjectMembers(project *client.Project) ([]client.ProjectMember, error) {
+	var projectMembers client.ProjectMemberCollection
+	err := r.client.GetLink(project.Resource, "projectMembers", &projectMembers)
+	return projectMembers.Data, err
+}
+
+func (r *rancherServer) resolveProjectId(name string) (string, error) {
+	projects, err := r.client.Project.List(&client.ListOpts{
+		Filters: map[string]interface{}{
+			"name":         name,
+			"removed_null": nil,
+		},
+	})
+	if err != nil {
+		logrus.Fatalf("Could not get project ID for %s", name)
+		return "", nil
+	}
+
+	if len(projects.Data) == 0 {
+		return "", nil
+	}
+
+	return projects.Data[0].Id, nil
+}
+
+func (r *rancherServer) findExistingProject(name string) (*client.Project, error) {
+	logrus.Debugf("Finding Project: %s", name)
+
+	projectId, err := r.resolveProjectId(name)
+	if err != nil {
+		logrus.Fatalf("Could not get project Id for %s", name)
+		return nil, err
+	}
+
+	projects, err := r.client.Project.List(&client.ListOpts{
+		Filters: map[string]interface{}{
+			"Id":   projectId,
+			"name": name,
+		},
+	})
+
+	if len(projects.Data) == 0 {
+		return nil, nil
+	}
+	return &projects.Data[0], nil
 }
