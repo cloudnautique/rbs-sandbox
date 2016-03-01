@@ -16,7 +16,7 @@ type tomlConfig struct {
 	LdapConfig  *client.Ldapconfig
 	Accounts    map[string]*client.Account
 	Projects    map[string]*client.Project
-	Memberships map[string]map[string]*client.ProjectMember
+	Memberships map[string]map[string]*client.Identity
 }
 
 type rancherServer struct {
@@ -28,15 +28,13 @@ func newRancherServer() *rancherServer {
 	config := &tomlConfig{}
 
 	opts := &client.ClientOpts{
-		Url:       rancherURL,
-		AccessKey: "admin",
-		SecretKey: "admin",
+		Url: rancherURL,
 	}
 
 	rClient, _ := getRancherClient(opts)
-	//adminKeys, _ := generateAdminApiKeys(rClient)
-	//rClient.Opts.AccessKey = adminKeys.PublicValue
-	//rClient.Opts.SecretKey = adminKeys.SecretValue
+	adminKeys, _ := generateAdminApiKeys(rClient)
+	rClient.Opts.AccessKey = adminKeys.PublicValue
+	rClient.Opts.SecretKey = adminKeys.SecretValue
 
 	logrus.Infof("Using Access Key: %s", rClient.Opts.AccessKey)
 
@@ -52,10 +50,10 @@ func newRancherServer() *rancherServer {
 
 func main() {
 	rancherServer := newRancherServer()
-	//rancherServer.enableAdAuth()
-	//rancherServer.setupAccounts()
-	//rancherServer.removeDefaultProject()
-	//rancherServer.addProjects()
+	rancherServer.enableAdAuth()
+	rancherServer.setupAccounts()
+	rancherServer.removeDefaultProject()
+	rancherServer.addProjects()
 	rancherServer.addMembers()
 }
 
@@ -122,26 +120,66 @@ func (r *rancherServer) addMembers() {
 			logrus.Fatalf("Could not find project %s", projectName)
 		}
 
-		setProjectMembersInput, _ := r.client.SetProjectMembersInput.List(&client.ListOpts{
-			Filters: map[string]interface{}{}
-		})
 		members, err := r.getProjectMembers(project)
 		if err != nil {
 			logrus.Fatalf("Error: %s", err)
 		}
 
 		for _, member := range projectMembers {
-			members = append(members, *member)
+			logrus.Infof("Getting Identity for: %s", member.Name)
+			identityCollection, err := r.client.Identity.List(&client.ListOpts{
+				Filters: map[string]interface{}{
+					"name": member.Name,
+				},
+			})
+			if err != nil {
+				logrus.Fatalf("Could not get Identity: %s. ERROR: %s", member.Name, err)
+			}
+			logrus.Infof("Collection Data:%#v", identityCollection.Data)
+
+			var identity client.Identity
+			if len(identityCollection.Data) > 0 {
+				identity = identityCollection.Data[0]
+			} else {
+				logrus.Fatalf("Could not get identity: %s.\n Got: %#v", member.Name, identityCollection)
+			}
+
+			newMember := &client.ProjectMember{
+				ExternalId:     identity.ExternalId,
+				ExternalIdType: identity.ExternalIdType,
+				Role:           member.Role,
+			}
+
+			logrus.Infof("Attempt: %#v", newMember)
+			members = append(members, newMember)
 		}
 
 		logrus.Infof("members %s", members)
+		setProjectMembersInput := &client.SetProjectMembersInput{
+			Members: members,
+		}
+
+		sPMI, err := r.client.Project.ActionSetmembers(project, setProjectMembersInput)
+		if err != nil {
+			logrus.Fatalf("Error: %s", err)
+		}
+		logrus.Infof("set members to: %#v", sPMI)
 	}
 }
 
-func (r *rancherServer) getProjectMembers(project *client.Project) ([]client.ProjectMember, error) {
+func (r *rancherServer) getProjectMembers(project *client.Project) ([]*client.ProjectMember, error) {
+	var members []*client.ProjectMember
 	var projectMembers client.ProjectMemberCollection
 	err := r.client.GetLink(project.Resource, "projectMembers", &projectMembers)
-	return projectMembers.Data, err
+	if err != nil {
+		return members, err
+	}
+
+	for _, member := range projectMembers.Data {
+		members = append(members, &member)
+	}
+
+	return members, err
 }
 
 func (r *rancherServer) resolveProjectId(name string) (string, error) {
