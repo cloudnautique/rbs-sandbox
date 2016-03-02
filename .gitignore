@@ -1,0 +1,5 @@
+/.dapper
+/bin
+*.swp
+/.trash-cache
+.keys
