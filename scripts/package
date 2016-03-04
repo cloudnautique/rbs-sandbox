@@ -1,0 +1,14 @@
+#!/bin/bash
+set -e
+
+source $(dirname $0)/version
+
+cd $(dirname $0)/../package
+
+TAG=${TAG:-${VERSION}}
+REPO=${REPO:-rancher}
+
+cp ../bin/rbs-sandbox .
+docker build -t ${REPO}/rbs-sandbox:${TAG} .
+
+echo Built ${REPO}/rbs-sandbox:${TAG}

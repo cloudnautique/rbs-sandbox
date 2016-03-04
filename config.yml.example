@@ -1,0 +1,69 @@
+server:
+  url: "http://192.168.99.100/v1"
+
+ldapconfig:
+  access_mode: "unrestricted"
+  connection_timeout: 5000
+  domain: "dc=rancher,dc=io"
+  enabled: true
+  group_member_mapping_attribute: "memberOf"
+  group_name_field: "name"
+  group_object_class: "group"
+  group_search_field: "sAMAccountName"
+  login_domain: "rancher"
+  port: 389
+  server: "ad.rancher.io"
+  service_account_password: "password"
+  service_account_username: "user"
+  tls: false
+  user_disabled_bit_mask: 2
+  user_enabled_attribute: "userAccountControl"
+  user_login_field: "sAMAccountName"
+  user_member_attribute: "memberOf"
+  user_name_field: "name"
+  user_object_class: "person"
+  user_search_field: "name"
+
+accounts:
+  cattle:
+    external_id_type: "ldap_user"
+    external_id: "CN=Cattle,OU=Rancher Labs,DC=rancher,DC=io"
+    kind: "admin"
+  devAuser:
+    external_id_type: "ldap_user"
+    kind: "user"
+    external_id: "CN=Dev A. User,OU=Office 2,OU=Rancher Labs,DC=rancher,DC=io"
+
+projects:
+  default:
+    name: "Default"
+    state: "Purged"
+  dev:
+    name: "Dev"
+
+memberships:
+  Dev: 
+    cattle:
+      role: "owner"
+      name: "cattle"
+    user1:
+      role: "owner"
+      name: "Dev A. User"
+
+registries:
+  Dev:
+    - server_address: "test0.example.com"
+      name: "internal test0 registry"
+      state: "Purged"
+    - server_address: "test1.example.com"
+      name: "internal test registry"
+    - server_address: "test2.example.com"
+      name: "internal test registry"
+
+registrycredentials:
+  Dev:
+    test1.example.com:
+      - type: "registryCredential"
+        email: "test@example.com"
+        public_value: "username"
+        secret_value: "password" 
