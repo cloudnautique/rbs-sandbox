@@ -1,0 +1,33 @@
+{
+	"ImportPath": "github.com/cloudnautique/rbs-sandbox",
+	"GoVersion": "go1.5",
+	"Deps": [
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.9.0-15-g219c8cb",
+			"Rev": "219c8cb75c258c552e999735be6df753ffc7afdc"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry-incubator/candiedyaml",
+			"Rev": "4e924c79e32959414e8c7aaed6607176d8ee79c3"
+		},
+		{
+			"ImportPath": "github.com/codegangsta/cli",
+			"Comment": "1.2.0-219-ga294348",
+			"Rev": "a2943485b110df8842045ae0600047f88a3a56a1"
+		},
+		{
+			"ImportPath": "github.com/gorilla/websocket",
+			"Rev": "5c91b59efa232fa9a87b705d54101832c498a172"
+		},
+		{
+			"ImportPath": "github.com/rancher/go-rancher/client",
+			"Comment": "v0.1.0-144-gf2fdaec",
+			"Rev": "f2fdaec4b9436141c654ec9a6b516b355dd954df"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "7a56174f0086b32866ebd746a794417edbc678a1"
+		}
+	]
+}
